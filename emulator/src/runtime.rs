@@ -1,5 +1,7 @@
 use thiserror::Error;
 
+use crate::{bus::interface::BusRead, cpu::Cpu};
+
 #[derive(Error, Debug, PartialEq)]
 pub enum RuntimeError {
     #[error("internal error: {message}")]
@@ -16,18 +18,21 @@ impl Runtime {
     }
 
     /// Entrypoint to run emulator.
-    pub fn run(self) -> Result<(), RuntimeError> {
-        Ok(())
+    pub fn run<B>(self, bus: B) -> Result<(), RuntimeError>
+    where
+        B: BusRead,
+    {
+        let mut cpu = Cpu::new(bus);
+
+        loop {
+            if let Err(err) = cpu.cycle() {
+                return Err(RuntimeError::Internal {
+                    message: format!("{err:#?}"),
+                });
+            }
+        }
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn should_run() {
-        let r = Runtime::new();
-        assert_eq!(r.run(), Ok(()));
-    }
-}
+mod tests {}

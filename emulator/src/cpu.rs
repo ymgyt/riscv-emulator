@@ -1,10 +1,16 @@
-use crate::bus::interface::{BusRead, BusReadException};
+use thiserror::Error;
+
+use crate::{
+    bus::interface::{BusRead, BusReadException},
+    instructions::{DecodeError, Decoder, Instruction, OpCode, RegisterIdx},
+};
 
 #[derive(Debug)]
 pub struct Cpu<B> {
     bus: B,
     state: State,
     r: Registers,
+    decoder: Decoder,
 }
 
 #[derive(Debug)]
@@ -16,6 +22,7 @@ pub struct State {
 struct Registers {
     /// Program counter
     pc: u32,
+    x: [u32; 32],
 }
 
 impl<B> Cpu<B> {
@@ -23,7 +30,8 @@ impl<B> Cpu<B> {
         Self {
             bus,
             state: State { cycle_counter: 0 },
-            r: Registers { pc: 0 },
+            r: Registers { pc: 0, x: [0; 32] },
+            decoder: Decoder::new(),
         }
     }
 
@@ -32,21 +40,67 @@ impl<B> Cpu<B> {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum CpuError {
+    #[error("load error: {0:?}")]
+    Load(BusReadException),
+    #[error("decode error: {0:?}")]
+    Decode(DecodeError),
+}
+
+enum Effect {
+    UpdateRegister { rd: RegisterIdx, imm: u32 },
+}
+
 impl<B> Cpu<B>
 where
     B: BusRead,
 {
-    pub fn cycle(&mut self) {
+    /// Emulate cpu clock cycle.
+    /// Decode instruction from pc.
+    /// Process instruction and update state.
+    pub fn cycle(&mut self) -> Result<(), CpuError> {
         self.state.cycle_counter = self.state.cycle_counter.wrapping_add(1);
 
-        let _ir = match self.read_instruction() {
-            Ok(ir) => ir,
-            Err(_) => todo!(),
-        };
+        self.next_instruction()
+            .and_then(|ir| self.process(ir))
+            .and_then(|effect| self.apply(effect))
     }
 
-    fn read_instruction(&self) -> Result<u32, BusReadException> {
-        self.bus.read32(self.r.pc)
+    /// Read and decode next instruction.
+    fn next_instruction(&self) -> Result<Instruction, CpuError> {
+        let ir = self.bus.read32(self.r.pc).map_err(CpuError::Load)?;
+        self.decoder.try_decode(ir).map_err(CpuError::Decode)
+    }
+
+    /// Return side effects resulting from processing instruction.
+    fn process(&self, ir: Instruction) -> Result<Effect, CpuError> {
+        use OpCode::*;
+        let effect = match ir.op_code {
+            LUI => Effect::UpdateRegister {
+                rd: ir.rd(),
+                imm: ir.imm(),
+            },
+        };
+        Ok(effect)
+    }
+
+    /// Apply side effect to update state.
+    fn apply(&mut self, effect: Effect) -> Result<(), CpuError> {
+        use Effect::*;
+        match effect {
+            UpdateRegister { rd, imm } => {
+                self.update_register(rd, imm);
+            }
+        }
+        Ok(())
+    }
+
+    fn update_register(&mut self, rd: RegisterIdx, v: u32) {
+        // Register x0 is always zero
+        if rd != 0 {
+            self.r.x[rd] = v;
+        }
     }
 }
 
@@ -59,7 +113,7 @@ mod tests {
     fn should_increment_cycle_counter() {
         let bus = Bus::new();
         let mut c = Cpu::new(bus);
-        c.cycle();
+        c.cycle().ok();
         assert_eq!(c.state().cycle_counter, 1);
     }
 }

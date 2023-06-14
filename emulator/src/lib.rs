@@ -1,3 +1,4 @@
-pub(crate) mod bus;
+pub mod bus;
 mod cpu;
-mod runtime;
+mod instructions;
+pub mod runtime;
