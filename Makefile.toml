@@ -1,0 +1,9 @@
+[tasks.test]
+clear = true
+command = "cargo"
+args = [
+  "nextest", "run"
+]
+
+[config]
+default_to_workspace = false

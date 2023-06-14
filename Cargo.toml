@@ -1,0 +1,9 @@
+[workspace]
+
+members = [ 
+  "emulator"
+]
+
+[workspace.dependencies]
+thiserror = "1.0.40"
+
