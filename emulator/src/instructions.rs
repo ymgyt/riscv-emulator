@@ -6,7 +6,7 @@ pub enum OpCode {
     /// LUI is used to build 32-bit constants and uses the U-type format.
     /// LUI palces the U-immediate value in the top 20bits of the destination register rd
     /// filling in the lowest 12 bits with zeros.
-    LUI,
+    Lui,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,7 +29,7 @@ impl Instruction {
         use Format::*;
         use OpCode::*;
         match self.op_code {
-            LUI => U,
+            Lui => U,
         }
     }
 
@@ -63,7 +63,7 @@ impl Decoder {
         use OpCode::*;
         // Volume I: RISC-V Unprivileged ISA V20191213 P130
         let op_code = match instruction & 0x7f {
-            0b0110111 => LUI,
+            0b0110111 => Lui,
 
             _ => return Err(DecodeError::InvalidOpCode),
         };

@@ -79,7 +79,7 @@ where
     fn process(&self, ir: Instruction) -> Result<Effect, CpuError> {
         use OpCode::*;
         let effect = match ir.op_code {
-            LUI => Effect::UpdateRegister {
+            Lui => Effect::UpdateRegister {
                 rd: ir.rd(),
                 imm: ir.imm(),
             },
@@ -110,7 +110,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bus::bus::Bus;
+    use crate::bus::Bus;
 
     #[test]
     fn should_increment_cycle_counter() {

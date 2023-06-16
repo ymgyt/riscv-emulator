@@ -30,6 +30,7 @@ impl Runtime {
                     message: format!("{err:#?}"),
                 });
             }
+            _ = cpu.state();
         }
     }
 }
