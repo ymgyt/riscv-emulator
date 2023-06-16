@@ -8,3 +8,48 @@ The implementation targets are
 * I(Base Instruction Set)
 * M
 * A
+
+
+## TODO
+
+### RV32I Base Instruction Set
+
+- [x] LUI
+- [ ] AUIPC
+- [ ] JAL
+- [ ] JALR
+- [ ] BEQ
+- [ ] BNE
+- [ ] BLT
+- [ ] BGE
+- [ ] BLTU
+- [ ] BGEU
+- [ ] LB
+- [ ] LH
+- [ ] LW
+- [ ] LBU
+- [ ] SB
+- [ ] SH
+- [ ] SW
+- [ ] ADDI
+- [ ] SLTI
+- [ ] SLTIU
+- [ ] XORI
+- [ ] ORI
+- [ ] ANDI
+- [ ] SLLI
+- [ ] SRLI
+- [ ] SRAI
+- [ ] ADD
+- [ ] SUB
+- [ ] SLL
+- [ ] SLT
+- [ ] SLTU
+- [ ] XOR
+- [ ] SRL
+- [ ] SRA
+- [ ] OR
+- [ ] AND
+- [ ] FENCE
+- [ ] ECALL
+- [ ] EBREAK
