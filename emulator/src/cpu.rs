@@ -83,6 +83,10 @@ where
                 rd: ir.rd(),
                 imm: ir.imm(),
             },
+            Auipc => Effect::UpdateRegister {
+                rd: ir.rd(),
+                imm: ir.imm() + self.r.pc,
+            },
         };
         Ok(effect)
     }
@@ -116,7 +120,7 @@ mod tests {
     fn should_increment_cycle_counter() {
         let bus = Bus::new(vec![0; 1024]);
         let mut c = Cpu::new(bus);
-        c.cycle().unwrap();
+        c.cycle().ok();
         assert_eq!(c.state().cycle_counter, 1);
     }
 
@@ -128,6 +132,18 @@ mod tests {
         let mut c = Cpu::new(bus);
         c.cycle().unwrap();
         // LUI filling in the lowest 12 bits with zeros.
+        assert_eq!(c.r.x[1], 4096);
+    }
+
+    #[test]
+    fn instruction_auipc() {
+        // Since this instruction implicitly performs an addition to the current pc
+        // it is preferable to have an initial pc other than 0
+        let lui: u32 = (0b1 << 12) | (0b01 << 7) | 0b0010111;
+        let ram = lui.to_le_bytes().into();
+        let bus = Bus::new(ram);
+        let mut c = Cpu::new(bus);
+        c.cycle().unwrap();
         assert_eq!(c.r.x[1], 4096);
     }
 }

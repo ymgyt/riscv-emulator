@@ -7,6 +7,12 @@ pub enum OpCode {
     /// LUI palces the U-immediate value in the top 20bits of the destination register rd
     /// filling in the lowest 12 bits with zeros.
     Lui,
+    /// Add upper immediate to pc
+    /// Auipc is used to build pc-relative addressed and uses the U-type format.
+    /// AUIPC forms a 32-bit offset from the 20-bit U-immediaate, filling in the lowest 12 bits with zeros
+    /// adds this offset to the address of the AUIPC instruction, then places the result in register rd.
+    Auipc,
+    Jal,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -18,6 +24,7 @@ pub struct Instruction {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Format {
     U,
+    J,
 }
 
 pub type Immediate = u32;
@@ -29,13 +36,16 @@ impl Instruction {
         use Format::*;
         use OpCode::*;
         match self.op_code {
-            Lui => U,
+            Lui | Auipc => U,
         }
     }
 
     pub fn imm(&self) -> Immediate {
         match self.format() {
             Format::U => self.raw & 0xffff_f000,
+            Format::J => {
+                todo!()
+            }
         }
     }
 
@@ -64,6 +74,8 @@ impl Decoder {
         // Volume I: RISC-V Unprivileged ISA V20191213 P130
         let op_code = match instruction & 0x7f {
             0b0110111 => Lui,
+            0b0010111 => Auipc,
+            0b1101111 => Jal,
 
             _ => return Err(DecodeError::InvalidOpCode),
         };

@@ -15,7 +15,7 @@ The implementation targets are
 ### RV32I Base Instruction Set
 
 - [x] LUI
-- [ ] AUIPC
+- [x] AUIPC
 - [ ] JAL
 - [ ] JALR
 - [ ] BEQ
