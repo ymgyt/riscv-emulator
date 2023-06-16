@@ -18,7 +18,7 @@ pub enum OpCode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Instruction {
     pub op_code: OpCode,
-    raw: u32,
+    ir: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,8 +26,6 @@ pub enum Format {
     U,
     J,
 }
-
-pub type Immediate = u32;
 
 pub type RegisterIdx = usize;
 
@@ -37,20 +35,38 @@ impl Instruction {
         use OpCode::*;
         match self.op_code {
             Lui | Auipc => U,
+            Jal => J,
         }
     }
 
-    pub fn imm(&self) -> Immediate {
+    pub fn imm(&self) -> u32 {
         match self.format() {
-            Format::U => self.raw & 0xffff_f000,
+            Format::U => self.ir & 0xffff_f000,
+            _ => todo!(),
+        }
+    }
+
+    pub fn imm_signed(&self) -> i32 {
+        match self.format() {
             Format::J => {
-                todo!()
+                let imm = ((self.ir & 0x80000000) >> 11)
+                    | ((self.ir & 0x7fe00000) >> 20)
+                    | ((self.ir & 0x00100000) >> 9)
+                    | (self.ir & 0x000ff000);
+
+                let imm = if imm & 0x0010_0000 != 0 {
+                    imm | 0xffe0_0000
+                } else {
+                    imm
+                };
+                imm as i32
             }
+            _ => unreachable!(),
         }
     }
 
     pub fn rd(&self) -> RegisterIdx {
-        let r = (self.raw >> 7) & 0x1f;
+        let r = (self.ir >> 7) & 0x1f;
         r as usize
     }
 }
@@ -81,7 +97,7 @@ impl Decoder {
         };
         Ok(Instruction {
             op_code,
-            raw: instruction,
+            ir: instruction,
         })
     }
 }

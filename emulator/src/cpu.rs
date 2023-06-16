@@ -51,6 +51,7 @@ pub enum CpuError {
 #[derive(Debug)]
 enum Effect {
     UpdateRegister { rd: RegisterIdx, imm: u32 },
+    Jal { rd: RegisterIdx, pc: u32, imm: i32 },
 }
 
 impl<B> Cpu<B>
@@ -71,7 +72,6 @@ where
     /// Read and decode next instruction.
     fn next_instruction(&self) -> Result<Instruction, CpuError> {
         let ir = self.bus.read32(self.r.pc).map_err(CpuError::Load)?;
-        println!("{ir:#b}");
         self.decoder.try_decode(ir).map_err(CpuError::Decode)
     }
 
@@ -87,6 +87,11 @@ where
                 rd: ir.rd(),
                 imm: ir.imm() + self.r.pc,
             },
+            Jal => Effect::Jal {
+                rd: ir.rd(),
+                imm: ir.imm_signed(),
+                pc: self.r.pc,
+            },
         };
         Ok(effect)
     }
@@ -94,20 +99,18 @@ where
     /// Apply side effect to update state.
     fn apply(&mut self, effect: Effect) -> Result<(), CpuError> {
         use Effect::*;
-        println!("{effect:?}");
         match effect {
             UpdateRegister { rd, imm } => {
-                self.update_register(rd, imm);
+                if rd != 0 {
+                    self.r.x[rd] = imm;
+                }
+            }
+            Jal { rd, pc, imm } => {
+                self.r.x[rd] = pc + 4;
+                self.r.pc = (pc as i64 + imm as i64) as u32;
             }
         }
         Ok(())
-    }
-
-    fn update_register(&mut self, rd: RegisterIdx, v: u32) {
-        // Register x0 is always zero
-        if rd != 0 {
-            self.r.x[rd] = v;
-        }
     }
 }
 
