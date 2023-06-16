@@ -1,2 +1,2 @@
-pub(crate) mod imp;
+pub(crate) mod bus;
 pub(crate) mod interface;

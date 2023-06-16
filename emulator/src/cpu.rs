@@ -48,6 +48,7 @@ pub enum CpuError {
     Decode(DecodeError),
 }
 
+#[derive(Debug)]
 enum Effect {
     UpdateRegister { rd: RegisterIdx, imm: u32 },
 }
@@ -70,6 +71,7 @@ where
     /// Read and decode next instruction.
     fn next_instruction(&self) -> Result<Instruction, CpuError> {
         let ir = self.bus.read32(self.r.pc).map_err(CpuError::Load)?;
+        println!("{ir:#b}");
         self.decoder.try_decode(ir).map_err(CpuError::Decode)
     }
 
@@ -88,6 +90,7 @@ where
     /// Apply side effect to update state.
     fn apply(&mut self, effect: Effect) -> Result<(), CpuError> {
         use Effect::*;
+        println!("{effect:?}");
         match effect {
             UpdateRegister { rd, imm } => {
                 self.update_register(rd, imm);
@@ -107,13 +110,24 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bus::imp::Bus;
+    use crate::bus::bus::Bus;
 
     #[test]
     fn should_increment_cycle_counter() {
-        let bus = Bus::new();
+        let bus = Bus::new(vec![0; 1024]);
         let mut c = Cpu::new(bus);
-        c.cycle().ok();
+        c.cycle().unwrap();
         assert_eq!(c.state().cycle_counter, 1);
+    }
+
+    #[test]
+    fn instruction_lui() {
+        let lui: u32 = (0b1 << 12) | (0b01 << 7) | 0b00110111;
+        let ram = lui.to_le_bytes().into();
+        let bus = Bus::new(ram);
+        let mut c = Cpu::new(bus);
+        c.cycle().unwrap();
+        // LUI filling in the lowest 12 bits with zeros.
+        assert_eq!(c.r.x[1], 4096);
     }
 }
