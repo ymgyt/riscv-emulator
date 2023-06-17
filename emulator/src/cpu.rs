@@ -65,6 +65,11 @@ enum Effect {
         offset: i32,
         base: u32,
     },
+    Branch {
+        do_branch: bool,
+        pc: u32,
+        imm: i32,
+    },
 }
 
 impl<B> Cpu<B>
@@ -111,6 +116,12 @@ where
                 offset: ir.imm_signed(),
                 base: self.read(ir.rs1()),
             },
+            Beq => self.branch_with_unsigned(|r1, r2| r1 == r2, ir),
+            Bne => self.branch_with_unsigned(|r1, r2| r1 != r2, ir),
+            Bltu => self.branch_with_unsigned(|r1, r2| r1 < r2, ir),
+            Bgeu => self.branch_with_unsigned(|r1, r2| r1 >= r2, ir),
+            Blt => self.branch_with_signed(|r1, r2| r1 < r2, ir),
+            Bge => self.branch_with_signed(|r1, r2| r1 >= r2, ir),
         };
         Ok(effect)
     }
@@ -118,14 +129,15 @@ where
     /// Apply side effect to update state.
     fn apply(&mut self, effect: Effect) -> Result<(), CpuError> {
         use Effect::*;
-        match effect {
+        let do_inc = match effect {
             UpdateRegister { rd, imm } => {
                 self.write(rd, imm);
+                true
             }
             Jal { rd, pc, imm } => {
                 self.write(rd, pc + 4);
                 self.r.pc = (pc as i64 + imm as i64) as u32;
-                self.r.pc -= 4; // cancel next inc
+                false
             }
             Jalr {
                 rd,
@@ -136,12 +148,38 @@ where
                 self.write(rd, pc + 4);
                 let target = (base as i64 + offset as i64) as u32;
                 self.r.pc = target & !1;
-                self.r.pc -= 4; // cancel next inc
+                false
             }
-        }
+            Branch { do_branch, pc, imm } => do_branch
+                .then(|| {
+                    self.r.pc = (pc as i64 + imm as i64) as u32;
+                })
+                .is_none(),
+        };
 
-        self.r.pc += 4;
+        do_inc.then(|| self.r.pc += 4);
+
         Ok(())
+    }
+
+    fn branch_with_unsigned<F: Fn(u32, u32) -> bool>(&self, f: F, ir: Instruction) -> Effect {
+        let do_branch = f(self.read(ir.rs1()), self.read(ir.rs2()));
+
+        Effect::Branch {
+            do_branch,
+            pc: self.r.pc,
+            imm: ir.imm_signed(),
+        }
+    }
+
+    fn branch_with_signed<F: Fn(i32, i32) -> bool>(&self, f: F, ir: Instruction) -> Effect {
+        let do_branch = f(self.read(ir.rs1()) as i32, self.read(ir.rs2()) as i32);
+
+        Effect::Branch {
+            do_branch,
+            pc: self.r.pc,
+            imm: ir.imm_signed(),
+        }
     }
 
     /// Write value to rd register

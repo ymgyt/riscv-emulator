@@ -22,6 +22,21 @@ pub enum OpCode {
     /// then setting the least-significant bit of the result to zero.
     /// The address of the instruction following the jump (pc+4) is written to register rd.
     Jalr,
+
+    /// All branch instructions use the B-type instruction format.
+    /// The 12-bit B-immediate encodes signed offsets in multiples of 2 bytes.
+    /// The offset is sign-extended and added to the address of the branch instruction to give the target address.
+    /// The conditional branch range is ±4 KiB.
+    /// Branch if Equal r1 == r2
+    Beq,
+    /// Branch if r1 != r2
+    Bne,
+    /// Branch if r1 < r2
+    Blt,
+    Bltu,
+    /// Branch if r1 >= r2
+    Bge,
+    Bgeu,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,6 +50,7 @@ pub enum Format {
     U,
     J,
     I,
+    B,
 }
 
 pub type RegisterIdx = usize;
@@ -47,6 +63,7 @@ impl Instruction {
             Lui | Auipc => U,
             Jal => J,
             Jalr => I,
+            Beq | Bne | Blt | Bltu | Bge | Bgeu => B,
         }
     }
 
@@ -81,6 +98,18 @@ impl Instruction {
                 };
                 imm as i32
             }
+            Format::B => {
+                let imm = ((self.ir & 0x80000000) >> 19)
+                    | ((self.ir & 0x7e000000) >> 20)
+                    | ((self.ir & 0x00000800) >> 7)
+                    | ((self.ir & 0x00000080) << 4);
+                let imm = if imm & 0x1000 != 0 {
+                    imm | 0xffffe000
+                } else {
+                    imm
+                };
+                imm as i32
+            }
             _ => unreachable!(),
         }
     }
@@ -92,6 +121,11 @@ impl Instruction {
 
     pub fn rs1(&self) -> usize {
         let r = (self.ir >> 15) & 0x1f;
+        r as usize
+    }
+
+    pub fn rs2(&self) -> usize {
+        let r = (self.ir >> 20) & 0x1f;
         r as usize
     }
 }
@@ -118,6 +152,15 @@ impl Decoder {
             0b0010111 => Auipc,
             0b1101111 => Jal,
             0b1100111 => Jalr,
+            0b1100011 => match (instruction >> 12) & 0x07 {
+                0b000 => Beq,
+                0b001 => Bne,
+                0b100 => Blt,
+                0b101 => Bge,
+                0b110 => Bltu,
+                0b111 => Bgeu,
+                _ => return Err(DecodeError::InvalidOpCode),
+            },
 
             _ => return Err(DecodeError::InvalidOpCode),
         };
