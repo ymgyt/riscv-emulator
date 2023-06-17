@@ -16,8 +16,8 @@ The implementation targets are
 
 - [x] LUI
 - [x] AUIPC
-- [ ] JAL
-- [ ] JALR
+- [x] JAL
+- [x] JALR
 - [ ] BEQ
 - [ ] BNE
 - [ ] BLT

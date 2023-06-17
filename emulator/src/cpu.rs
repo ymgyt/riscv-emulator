@@ -50,8 +50,21 @@ pub enum CpuError {
 
 #[derive(Debug)]
 enum Effect {
-    UpdateRegister { rd: RegisterIdx, imm: u32 },
-    Jal { rd: RegisterIdx, pc: u32, imm: i32 },
+    UpdateRegister {
+        rd: RegisterIdx,
+        imm: u32,
+    },
+    Jal {
+        rd: RegisterIdx,
+        pc: u32,
+        imm: i32,
+    },
+    Jalr {
+        rd: RegisterIdx,
+        pc: u32,
+        offset: i32,
+        base: u32,
+    },
 }
 
 impl<B> Cpu<B>
@@ -92,6 +105,12 @@ where
                 imm: ir.imm_signed(),
                 pc: self.r.pc,
             },
+            Jalr => Effect::Jalr {
+                rd: ir.rd(),
+                pc: self.r.pc,
+                offset: ir.imm_signed(),
+                base: self.read(ir.rs1()),
+            },
         };
         Ok(effect)
     }
@@ -101,16 +120,39 @@ where
         use Effect::*;
         match effect {
             UpdateRegister { rd, imm } => {
-                if rd != 0 {
-                    self.r.x[rd] = imm;
-                }
+                self.write(rd, imm);
             }
             Jal { rd, pc, imm } => {
-                self.r.x[rd] = pc + 4;
+                self.write(rd, pc + 4);
                 self.r.pc = (pc as i64 + imm as i64) as u32;
+                self.r.pc -= 4; // cancel next inc
+            }
+            Jalr {
+                rd,
+                pc,
+                offset,
+                base,
+            } => {
+                self.write(rd, pc + 4);
+                let target = (base as i64 + offset as i64) as u32;
+                self.r.pc = target & !1;
+                self.r.pc -= 4; // cancel next inc
             }
         }
+
+        self.r.pc += 4;
         Ok(())
+    }
+
+    /// Write value to rd register
+    fn write(&mut self, rd: usize, v: u32) {
+        if rd != 0 {
+            self.r.x[rd] = v;
+        }
+    }
+
+    fn read(&self, rs: usize) -> u32 {
+        self.r.x[rs]
     }
 }
 
