@@ -183,12 +183,14 @@ where
     }
 
     /// Write value to rd register
+    /// Write to x0 register are ignored
     fn write(&mut self, rd: usize, v: u32) {
         if rd != 0 {
             self.r.x[rd] = v;
         }
     }
 
+    /// Read from register
     fn read(&self, rs: usize) -> u32 {
         self.r.x[rs]
     }
