@@ -18,16 +18,16 @@ The implementation targets are
 - [x] AUIPC
 - [x] JAL
 - [x] JALR
-- [ ] BEQ
-- [ ] BNE
-- [ ] BLT
-- [ ] BGE
-- [ ] BLTU
-- [ ] BGEU
-- [ ] LB
-- [ ] LH
-- [ ] LW
-- [ ] LBU
+- [x] BEQ
+- [x] BNE
+- [x] BLT
+- [x] BGE
+- [x] BLTU
+- [x] BGEU
+- [x] LB
+- [x] LH
+- [x] LW
+- [x] LBU
 - [ ] SB
 - [ ] SH
 - [ ] SW
