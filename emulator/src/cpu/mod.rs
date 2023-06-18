@@ -10,10 +10,20 @@ use crate::{
 
 #[derive(Debug)]
 pub struct Cpu<B> {
+    _mode: Mode,
     bus: B,
     state: Stats,
     r: Registers,
     decoder: Decoder,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Mode {
+    /// Machine mode
+    M,
+    /// User mode
+    #[allow(unused)]
+    U,
 }
 
 #[derive(Debug)]
@@ -31,6 +41,7 @@ struct Registers {
 impl<B> Cpu<B> {
     pub fn new(bus: B) -> Self {
         Self {
+            _mode: Mode::M,
             bus,
             state: Stats { cycle_counter: 0 },
             r: Registers { pc: 0, x: [0; 32] },
