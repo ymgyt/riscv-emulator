@@ -52,6 +52,14 @@ pub enum OpCode {
     Lbu,
     /// Load halfword unsigned
     Lhu,
+
+    /// Atomic read/write csr
+    Csrrw,
+    Csrrs,
+    Csrrc,
+    Csrrwi,
+    Csrrsi,
+    Csrrci,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +88,7 @@ impl Instruction {
             Jalr => I,
             Beq | Bne | Blt | Bltu | Bge | Bgeu => B,
             Lb | Lh | Lw | Lbu | Lhu => I,
+            Csrrw | Csrrs | Csrrc | Csrrwi | Csrrsi | Csrrci => I,
         }
     }
 
@@ -144,6 +153,14 @@ impl Instruction {
         let r = (self.ir >> 20) & 0x1f;
         r as usize
     }
+
+    /// for CSR Instructions
+    pub fn csr(&self) -> usize {
+        // make sure instruction is csr
+        debug_assert_eq!(self.ir & 0x7f, 0b1110011);
+        let r = self.ir >> 20;
+        r as usize
+    }
 }
 
 #[derive(Error, Debug)]
@@ -183,6 +200,15 @@ impl Decoder {
                 0b010 => Lw,
                 0b100 => Lbu,
                 0b101 => Lhu,
+                _ => return Err(DecodeError::InvalidOpCode),
+            },
+            0b1110011 => match (instruction >> 12) & 0x07 {
+                0b001 => Csrrw,
+                0b010 => Csrrs,
+                0b011 => Csrrc,
+                0b101 => Csrrwi,
+                0b110 => Csrrsi,
+                0b111 => Csrrci,
                 _ => return Err(DecodeError::InvalidOpCode),
             },
 

@@ -54,3 +54,13 @@ The implementation targets are
 - [ ] FENCE
 - [ ] ECALL
 - [ ] EBREAK
+
+
+### Zicsr
+
+- [x] Csrrw,
+- [ ] Csrrs,
+- [ ] Csrrc,
+- [ ] Csrrwi,
+- [ ] Csrrsi,
+- [ ] Csrrci,

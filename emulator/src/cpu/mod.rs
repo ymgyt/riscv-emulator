@@ -1,6 +1,9 @@
 mod macros;
 use macros::add_imm_signed;
 
+mod csr;
+use csr::Csr;
+
 use thiserror::Error;
 
 use crate::{
@@ -12,8 +15,9 @@ use crate::{
 pub struct Cpu<B> {
     _mode: Mode,
     bus: B,
-    state: Stats,
+    stats: Stats,
     r: Registers,
+    csr: Csr,
     decoder: Decoder,
 }
 
@@ -43,14 +47,15 @@ impl<B> Cpu<B> {
         Self {
             _mode: Mode::M,
             bus,
-            state: Stats { cycle_counter: 0 },
+            stats: Stats { cycle_counter: 0 },
             r: Registers { pc: 0, x: [0; 32] },
+            csr: Csr::new(),
             decoder: Decoder::new(),
         }
     }
 
     pub fn state(&self) -> &Stats {
-        &self.state
+        &self.stats
     }
 }
 
@@ -89,6 +94,7 @@ enum Effect<B> {
         rd: RegisterIdx,
         load: fn(u32, &B) -> Result<u32, BusReadException>,
     },
+    Csr {},
 }
 
 impl<B> Cpu<B>
@@ -99,7 +105,7 @@ where
     /// Decode instruction from pc.
     /// Process instruction and update state.
     pub fn cycle(&mut self) -> Result<(), CpuError> {
-        self.state.cycle_counter = self.state.cycle_counter.wrapping_add(1);
+        self.stats.cycle_counter = self.stats.cycle_counter.wrapping_add(1);
 
         self.next_instruction()
             .and_then(|ir| self.process(ir))
@@ -113,7 +119,7 @@ where
     }
 
     /// Return side effects resulting from processing instruction.
-    fn process(&self, ir: Instruction) -> Result<Effect<B>, CpuError> {
+    fn process(&mut self, ir: Instruction) -> Result<Effect<B>, CpuError> {
         use OpCode::*;
         let effect = match ir.op_code {
             Lui => Effect::UpdateRegister {
@@ -146,6 +152,21 @@ where
             Lw => self.load_with(|addr, bus| bus.read32(addr), ir),
             Lbu => self.load_with(|addr, bus| bus.read8(addr).map(|v| v as u32), ir),
             Lhu => self.load_with(|addr, bus| bus.read16(addr).map(|v| v as u32), ir),
+            Csrrw => {
+                let csr_adr = ir.csr();
+                let rd = ir.rd();
+                if rd != 0 {
+                    // If rd=x0, then the instruction shall not read the CSR
+                    // and shall not cause any of the side effects that might occur on a CSR read.
+                    let csr_val = self.csr.read(csr_adr);
+                    self.write(rd, csr_val);
+                }
+                let rs1_val = self.read(ir.rs1());
+                self.csr.write(csr_adr, rs1_val);
+
+                Effect::Csr {}
+            }
+            _ => todo!(),
         };
         Ok(effect)
     }
