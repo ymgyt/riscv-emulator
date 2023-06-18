@@ -11,13 +11,13 @@ use crate::{
 #[derive(Debug)]
 pub struct Cpu<B> {
     bus: B,
-    state: State,
+    state: Stats,
     r: Registers,
     decoder: Decoder,
 }
 
 #[derive(Debug)]
-pub struct State {
+pub struct Stats {
     pub cycle_counter: u64,
 }
 
@@ -32,13 +32,13 @@ impl<B> Cpu<B> {
     pub fn new(bus: B) -> Self {
         Self {
             bus,
-            state: State { cycle_counter: 0 },
+            state: Stats { cycle_counter: 0 },
             r: Registers { pc: 0, x: [0; 32] },
             decoder: Decoder::new(),
         }
     }
 
-    pub fn state(&self) -> &State {
+    pub fn state(&self) -> &Stats {
         &self.state
     }
 }
