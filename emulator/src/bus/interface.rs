@@ -1,6 +1,10 @@
-#[derive(Debug, Clone, Copy)]
+use thiserror::Error;
+
+#[derive(Error, Debug, Clone, Copy)]
 pub enum BusReadException {
+    #[error("load address misaligned")]
     LoadAddressMisaligned,
+    #[error("load access fault")]
     LoadAccessFault,
 }
 
@@ -10,9 +14,11 @@ pub trait BusRead {
     fn read32(&self, addr: u32) -> Result<u32, BusReadException>;
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Error, Debug, Clone, Copy)]
 pub enum BusWriteException {
+    #[error("store address misaligned")]
     StoreAddressMisaligned,
+    #[error("store acces fault")]
     StoreAccessFault,
 }
 

@@ -37,6 +37,21 @@ pub enum OpCode {
     /// Branch if r1 >= r2
     Bge,
     Bgeu,
+
+    /// Load and store instructions transfer a value between the registers and memory.
+    /// Loads are encoded in the I-type format and stores are S-type.
+    /// The effective address is obtained by adding register rs1 to the sign-extended 12-bit offset.
+    /// Loads copy a value from memory to register rd. Stores copy the value in register rs2 to memory.
+    /// Load byte
+    Lb,
+    /// Load halfword
+    Lh,
+    /// Load word
+    Lw,
+    /// Load byte unsigned
+    Lbu,
+    /// Load halfword unsigned
+    Lhu,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,6 +79,7 @@ impl Instruction {
             Jal => J,
             Jalr => I,
             Beq | Bne | Blt | Bltu | Bge | Bgeu => B,
+            Lb | Lh | Lw | Lbu | Lhu => I,
         }
     }
 
@@ -159,6 +175,14 @@ impl Decoder {
                 0b101 => Bge,
                 0b110 => Bltu,
                 0b111 => Bgeu,
+                _ => return Err(DecodeError::InvalidOpCode),
+            },
+            0b0000011 => match (instruction >> 12) & 0x07 {
+                0b000 => Lb,
+                0b001 => Lh,
+                0b010 => Lw,
+                0b100 => Lbu,
+                0b101 => Lhu,
                 _ => return Err(DecodeError::InvalidOpCode),
             },
 

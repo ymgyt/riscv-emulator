@@ -1,3 +1,6 @@
+mod macros;
+use macros::add_imm_signed;
+
 use thiserror::Error;
 
 use crate::{
@@ -42,14 +45,14 @@ impl<B> Cpu<B> {
 
 #[derive(Error, Debug)]
 pub enum CpuError {
-    #[error("load error: {0:?}")]
-    Load(BusReadException),
+    #[error("load error {0:?}")]
+    Load(#[from] BusReadException),
     #[error("decode error: {0:?}")]
     Decode(DecodeError),
 }
 
 #[derive(Debug)]
-enum Effect {
+enum Effect<B> {
     UpdateRegister {
         rd: RegisterIdx,
         imm: u32,
@@ -69,6 +72,11 @@ enum Effect {
         do_branch: bool,
         pc: u32,
         imm: i32,
+    },
+    Load {
+        effective_addr: u32,
+        rd: RegisterIdx,
+        load: fn(u32, &B) -> Result<u32, BusReadException>,
     },
 }
 
@@ -94,7 +102,7 @@ where
     }
 
     /// Return side effects resulting from processing instruction.
-    fn process(&self, ir: Instruction) -> Result<Effect, CpuError> {
+    fn process(&self, ir: Instruction) -> Result<Effect<B>, CpuError> {
         use OpCode::*;
         let effect = match ir.op_code {
             Lui => Effect::UpdateRegister {
@@ -122,12 +130,17 @@ where
             Bgeu => self.branch_with_unsigned(|r1, r2| r1 >= r2, ir),
             Blt => self.branch_with_signed(|r1, r2| r1 < r2, ir),
             Bge => self.branch_with_signed(|r1, r2| r1 >= r2, ir),
+            Lb => self.load_with(|addr, bus| bus.read8(addr).map(|v| v as i8 as u32), ir),
+            Lh => self.load_with(|addr, bus| bus.read16(addr).map(|v| v as i16 as u32), ir),
+            Lw => self.load_with(|addr, bus| bus.read32(addr), ir),
+            Lbu => self.load_with(|addr, bus| bus.read8(addr).map(|v| v as u32), ir),
+            Lhu => self.load_with(|addr, bus| bus.read16(addr).map(|v| v as u32), ir),
         };
         Ok(effect)
     }
 
     /// Apply side effect to update state.
-    fn apply(&mut self, effect: Effect) -> Result<(), CpuError> {
+    fn apply(&mut self, effect: Effect<B>) -> Result<(), CpuError> {
         use Effect::*;
         let do_inc = match effect {
             UpdateRegister { rd, imm } => {
@@ -155,6 +168,15 @@ where
                     self.r.pc = (pc as i64 + imm as i64) as u32;
                 })
                 .is_none(),
+            Load {
+                effective_addr,
+                rd,
+                load,
+            } => {
+                let v = load(effective_addr, &self.bus)?;
+                self.write(rd, v);
+                true
+            }
         };
 
         do_inc.then(|| self.r.pc += 4);
@@ -162,7 +184,7 @@ where
         Ok(())
     }
 
-    fn branch_with_unsigned<F: Fn(u32, u32) -> bool>(&self, f: F, ir: Instruction) -> Effect {
+    fn branch_with_unsigned<F: Fn(u32, u32) -> bool>(&self, f: F, ir: Instruction) -> Effect<B> {
         let do_branch = f(self.read(ir.rs1()), self.read(ir.rs2()));
 
         Effect::Branch {
@@ -172,13 +194,26 @@ where
         }
     }
 
-    fn branch_with_signed<F: Fn(i32, i32) -> bool>(&self, f: F, ir: Instruction) -> Effect {
+    fn branch_with_signed<F: Fn(i32, i32) -> bool>(&self, f: F, ir: Instruction) -> Effect<B> {
         let do_branch = f(self.read(ir.rs1()) as i32, self.read(ir.rs2()) as i32);
 
         Effect::Branch {
             do_branch,
             pc: self.r.pc,
             imm: ir.imm_signed(),
+        }
+    }
+
+    fn load_with(
+        &self,
+        load: fn(u32, &B) -> Result<u32, BusReadException>,
+        ir: Instruction,
+    ) -> Effect<B> {
+        let effective_addr = add_imm_signed!(ir.rs1(), ir.imm_signed());
+        Effect::Load {
+            effective_addr,
+            rd: ir.rd(),
+            load,
         }
     }
 
