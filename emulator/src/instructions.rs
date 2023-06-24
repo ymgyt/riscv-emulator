@@ -55,6 +55,7 @@ pub enum OpCode {
 
     /// Atomic read/write csr
     Csrrw,
+    /// Atomic read and set bits
     Csrrs,
     Csrrc,
     Csrrwi,

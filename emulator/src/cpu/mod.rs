@@ -94,7 +94,12 @@ enum Effect<B> {
         rd: RegisterIdx,
         load: fn(u32, &B) -> Result<u32, BusReadException>,
     },
-    Csr {},
+    Csr {
+        rd: RegisterIdx,
+        rd_value: u32,
+        csr: RegisterIdx,
+        csr_value: u32,
+    },
 }
 
 impl<B> Cpu<B>
@@ -152,21 +157,12 @@ where
             Lw => self.load_with(|addr, bus| bus.read32(addr), ir),
             Lbu => self.load_with(|addr, bus| bus.read8(addr).map(|v| v as u32), ir),
             Lhu => self.load_with(|addr, bus| bus.read16(addr).map(|v| v as u32), ir),
-            Csrrw => {
-                let csr_adr = ir.csr();
-                let rd = ir.rd();
-                if rd != 0 {
-                    // If rd=x0, then the instruction shall not read the CSR
-                    // and shall not cause any of the side effects that might occur on a CSR read.
-                    let csr_val = self.csr.read(csr_adr);
-                    self.write(rd, csr_val);
-                }
-                let rs1_val = self.read(ir.rs1());
-                self.csr.write(csr_adr, rs1_val);
-
-                Effect::Csr {}
-            }
-            _ => todo!(),
+            Csrrw => self.csr_with(|_csr, rs1| rs1, ir, false),
+            Csrrs => self.csr_with(|csr, rs1| csr | rs1, ir, false),
+            Csrrc => self.csr_with(|csr, rs1| csr & (!rs1), ir, false),
+            Csrrwi => self.csr_with(|_csr, rs1| rs1, ir, true),
+            Csrrsi => self.csr_with(|csr, rs1| csr | rs1, ir, true),
+            Csrrci => self.csr_with(|csr, rs1| csr & (!rs1), ir, true),
         };
         Ok(effect)
     }
@@ -209,6 +205,16 @@ where
                 self.write(rd, v);
                 true
             }
+            Csr {
+                rd,
+                rd_value,
+                csr,
+                csr_value,
+            } => {
+                self.write(rd, rd_value);
+                self.csr.write(csr, csr_value);
+                true
+            }
         };
 
         do_inc.then(|| self.r.pc += 4);
@@ -246,6 +252,24 @@ where
             effective_addr,
             rd: ir.rd(),
             load,
+        }
+    }
+
+    fn csr_with<F: Fn(u32, u32) -> u32>(&self, f: F, ir: Instruction, imm: bool) -> Effect<B> {
+        let csr_addr = ir.csr();
+        let csr_val = self.csr.read(csr_addr);
+        let rs1 = if imm {
+            ir.rs1() as u32
+        } else {
+            self.read(ir.rs1())
+        };
+        let new_csr_val = f(csr_val, rs1);
+
+        Effect::Csr {
+            rd: ir.rd(),
+            rd_value: csr_val,
+            csr: csr_addr,
+            csr_value: new_csr_val,
         }
     }
 

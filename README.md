@@ -59,8 +59,8 @@ The implementation targets are
 ### Zicsr
 
 - [x] Csrrw,
-- [ ] Csrrs,
-- [ ] Csrrc,
-- [ ] Csrrwi,
-- [ ] Csrrsi,
-- [ ] Csrrci,
+- [x] Csrrs,
+- [x] Csrrc,
+- [x] Csrrwi,
+- [x] Csrrsi,
+- [x] Csrrci,
