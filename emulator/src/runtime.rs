@@ -1,6 +1,9 @@
 use thiserror::Error;
 
-use crate::{bus::interface::BusRead, cpu::Cpu};
+use crate::{
+    bus::interface::{BusRead, BusWrite},
+    cpu::Cpu,
+};
 
 #[derive(Error, Debug, PartialEq)]
 pub enum RuntimeError {
@@ -20,7 +23,7 @@ impl Runtime {
     /// Entrypoint to run emulator.
     pub fn run<B>(self, bus: B) -> Result<(), RuntimeError>
     where
-        B: BusRead,
+        B: BusRead + BusWrite,
     {
         let mut cpu = Cpu::new(bus);
 

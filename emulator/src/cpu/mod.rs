@@ -7,7 +7,7 @@ use csr::Csr;
 use thiserror::Error;
 
 use crate::{
-    bus::interface::{BusRead, BusReadException},
+    bus::interface::{BusRead, BusReadException, BusWrite, BusWriteException},
     instructions::{DecodeError, Decoder, Instruction, OpCode, RegisterIdx},
 };
 
@@ -63,6 +63,8 @@ impl<B> Cpu<B> {
 pub enum CpuError {
     #[error("load error {0:?}")]
     Load(#[from] BusReadException),
+    #[error("store error {0:?}")]
+    Store(#[from] BusWriteException),
     #[error("decode error: {0:?}")]
     Decode(DecodeError),
 }
@@ -94,6 +96,11 @@ enum Effect<B> {
         rd: RegisterIdx,
         load: fn(u32, &B) -> Result<u32, BusReadException>,
     },
+    Store {
+        effective_addr: u32,
+        rs2: u32,
+        store: fn(u32, u32, &mut B) -> Result<(), BusWriteException>,
+    },
     Csr {
         rd: RegisterIdx,
         rd_value: u32,
@@ -104,7 +111,7 @@ enum Effect<B> {
 
 impl<B> Cpu<B>
 where
-    B: BusRead,
+    B: BusRead + BusWrite,
 {
     /// Emulate cpu clock cycle.
     /// Decode instruction from pc.
@@ -157,6 +164,9 @@ where
             Lw => self.load_with(|addr, bus| bus.read32(addr), ir),
             Lbu => self.load_with(|addr, bus| bus.read8(addr).map(|v| v as u32), ir),
             Lhu => self.load_with(|addr, bus| bus.read16(addr).map(|v| v as u32), ir),
+            Sb => self.store_with(|addr, val, bus| bus.write8(addr, val as u8), ir),
+            Sh => self.store_with(|addr, val, bus| bus.write16(addr, val as u16), ir),
+            Sw => self.store_with(|addr, val, bus| bus.write32(addr, val), ir),
             Csrrw => self.csr_with(|_csr, rs1| rs1, ir, false),
             Csrrs => self.csr_with(|csr, rs1| csr | rs1, ir, false),
             Csrrc => self.csr_with(|csr, rs1| csr & (!rs1), ir, false),
@@ -203,6 +213,14 @@ where
             } => {
                 let v = load(effective_addr, &self.bus)?;
                 self.write(rd, v);
+                true
+            }
+            Store {
+                effective_addr,
+                rs2,
+                store,
+            } => {
+                store(effective_addr, rs2, &mut self.bus)?;
                 true
             }
             Csr {
@@ -252,6 +270,19 @@ where
             effective_addr,
             rd: ir.rd(),
             load,
+        }
+    }
+
+    fn store_with(
+        &self,
+        store: fn(u32, u32, &mut B) -> Result<(), BusWriteException>,
+        ir: Instruction,
+    ) -> Effect<B> {
+        let effective_addr = add_imm_signed!(ir.rs1(), ir.imm_signed());
+        Effect::Store {
+            effective_addr,
+            rs2: self.read(ir.rs2()),
+            store,
         }
     }
 

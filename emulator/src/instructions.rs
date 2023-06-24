@@ -52,14 +52,24 @@ pub enum OpCode {
     Lbu,
     /// Load halfword unsigned
     Lhu,
+    /// Store byte
+    Sb,
+    /// Store halfword
+    Sh,
+    /// Store word
+    Sw,
 
     /// Atomic read/write csr
     Csrrw,
     /// Atomic read and set bits
     Csrrs,
+    /// Read and clear
     Csrrc,
+    /// Read and write immediate
     Csrrwi,
+    /// Read and set immediate
     Csrrsi,
+    /// Read and clear immediate
     Csrrci,
 }
 
@@ -75,6 +85,7 @@ pub enum Format {
     J,
     I,
     B,
+    S,
 }
 
 pub type RegisterIdx = usize;
@@ -89,6 +100,7 @@ impl Instruction {
             Jalr => I,
             Beq | Bne | Blt | Bltu | Bge | Bgeu => B,
             Lb | Lh | Lw | Lbu | Lhu => I,
+            Sb | Sh | Sw => S,
             Csrrw | Csrrs | Csrrc | Csrrwi | Csrrsi | Csrrci => I,
         }
     }
@@ -131,6 +143,15 @@ impl Instruction {
                     | ((self.ir & 0x00000080) << 4);
                 let imm = if imm & 0x1000 != 0 {
                     imm | 0xffffe000
+                } else {
+                    imm
+                };
+                imm as i32
+            }
+            Format::S => {
+                let imm = (self.ir >> 20) | (self.ir >> 7) & 0x1f;
+                let imm = if imm & 0x800 != 0 {
+                    imm | 0xfffff000
                 } else {
                     imm
                 };
@@ -201,6 +222,12 @@ impl Decoder {
                 0b010 => Lw,
                 0b100 => Lbu,
                 0b101 => Lhu,
+                _ => return Err(DecodeError::InvalidOpCode),
+            },
+            0b0000011 => match (instruction >> 12) & 0x07 {
+                0b000 => Sb,
+                0b001 => Sh,
+                0b001 => Sw,
                 _ => return Err(DecodeError::InvalidOpCode),
             },
             0b1110011 => match (instruction >> 12) & 0x07 {
